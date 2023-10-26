@@ -15,9 +15,11 @@ import (
 )
 
 var (
+	//最大并发插入数
 	maxConcurrentInserts = flag.Int("maxConcurrentInserts", 2*cgroup.AvailableCPUs(), "The maximum number of concurrent insert requests. "+
 		"Default value should work for most cases, since it minimizes the memory usage. The default value can be increased when clients send data over slow networks. "+
 		"See also -insert.maxQueueDuration")
+	//当达到最大并发限制时，请求在队列中等待的最大时间。
 	maxQueueDuration = flag.Duration("insert.maxQueueDuration", time.Minute, "The maximum duration to wait in the queue when -maxConcurrentInserts "+
 		"concurrent insert requests are executed")
 )
@@ -87,6 +89,7 @@ func (r *Reader) DecConcurrency() {
 }
 
 func initConcurrencyLimitCh() {
+	//初始化最大并发数
 	concurrencyLimitCh = make(chan struct{}, *maxConcurrentInserts)
 }
 
@@ -95,9 +98,12 @@ var (
 	concurrencyLimitChOnce sync.Once
 )
 
+// 并发通过channel来进行控制，通过channel大小来控制最大并发数
 func incConcurrency() bool {
+	//通过同步并发锁，来限制只调用一次initConcurrencyLimitCh
 	concurrencyLimitChOnce.Do(initConcurrencyLimitCh)
 
+	//GO中的一个经典操作，
 	select {
 	case concurrencyLimitCh <- struct{}{}:
 		return true

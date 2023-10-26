@@ -24,10 +24,11 @@ var maxLineLen = flagutil.NewBytes("import.maxLineLen", 100*1024*1024, "The maxi
 //
 // callback shouldn't hold rows after returning.
 func Parse(r io.Reader, isGzipped bool, callback func(rows []vmimport.Row) error) error {
+	//主要进行限流，限制并发数
 	wcr := writeconcurrencylimiter.GetReader(r)
+	//调用完之后，就次数减一
 	defer writeconcurrencylimiter.PutReader(wcr)
 	r = wcr
-
 	if isGzipped {
 		zr, err := common.GetGzipReader(r)
 		if err != nil {

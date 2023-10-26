@@ -40,31 +40,41 @@ func insertRows(rows []parser.Row, extraLabels []prompbmarshal.Label) error {
 	ctx := common.GetInsertCtx()
 	defer common.PutInsertCtx(ctx)
 
+	//重置ctc
 	ctx.Reset(len(rows))
+	//判断是否需要重新label
 	hasRelabeling := relabel.HasRelabeling()
 	for i := range rows {
 		r := &rows[i]
 		ctx.Labels = ctx.Labels[:0]
+		//增加标签，默认标签"",metric的标签指标名
 		ctx.AddLabel("", r.Metric)
+		//添加标签
 		for j := range r.Tags {
 			tag := &r.Tags[j]
 			ctx.AddLabel(tag.Key, tag.Value)
 		}
+		//添加额外标签
 		for j := range extraLabels {
 			label := &extraLabels[j]
 			ctx.AddLabel(label.Name, label.Value)
 		}
 		if hasRelabeling {
+			//标签重定义
 			ctx.ApplyRelabeling()
 		}
+		//如果没有标签，则不处理，说明是无效的
 		if len(ctx.Labels) == 0 {
 			// Skip metric without labels.
 			continue
 		}
+		//对标签进行排序
 		ctx.SortLabelsIfNeeded()
+		//进行数据写入
 		if err := ctx.WriteDataPoint(nil, ctx.Labels, r.Timestamp, r.Value); err != nil {
 			return err
 		}
+
 	}
 	rowsInserted.Add(len(rows))
 	rowsPerInsert.Update(float64(len(rows)))

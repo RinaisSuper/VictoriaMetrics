@@ -22,3 +22,5 @@ Gemfile.lock
 /_site
 _site
 *.tmp
+/app/victoria-metrics/victoria-metrics-data
+.history

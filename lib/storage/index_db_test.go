@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"log"
 	"math/rand"
+	"net/http"
 	"os"
 	"reflect"
 	"regexp"
@@ -114,9 +116,21 @@ func TestReverseBytes(t *testing.T) {
 func TestMergeTagToMetricIDsRows(t *testing.T) {
 	f := func(items []string, expectedItems []string) {
 		t.Helper()
-		var data []byte
+			// Create a new item
+			item := Item{
+				Title:       title,
+				Description: description,
+				Link:        link,
+				PubDate:     pubDate,
+			}
 		var itemsB []mergeset.Item
-		for _, item := range items {
+			// Set up our request
+			req, err := http.NewRequest("GET", item, nil)
+			if err != nil {
+				log.Println(err)
+				continue
+			}
+	for _, item := range items {
 			data = append(data, item...)
 			itemsB = append(itemsB, mergeset.Item{
 				Start: uint32(len(data) - len(item)),

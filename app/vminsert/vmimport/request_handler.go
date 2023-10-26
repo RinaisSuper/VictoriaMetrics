@@ -25,11 +25,14 @@ var (
 //
 // See https://github.com/VictoriaMetrics/VictoriaMetrics/issues/6
 func InsertHandler(req *http.Request) error {
+	//提取请求中的额外标签，后续这些标签也要插入的
 	extraLabels, err := parserCommon.GetExtraLabels(req)
 	if err != nil {
 		return err
 	}
+	//判断是不是gzip格式的压缩数据
 	isGzipped := req.Header.Get("Content-Encoding") == "gzip"
+	//解析请求中的数据，然后进行回调处理来写入数据
 	return stream.Parse(req.Body, isGzipped, func(rows []parser.Row) error {
 		return insertRows(rows, extraLabels)
 	})
@@ -95,6 +98,23 @@ func (ctx *pushCtx) reset() {
 	ctx.metricNameBuf = ctx.metricNameBuf[:0]
 }
 
+/*
+*
+<pre>
+让我们详细解释这个函数的行为：
+
+使用 select 语句尝试从 pushCtxPoolCh channel 中读取一个 pushCtx 对象。
+如果 channel 中有一个可用的 pushCtx，则立即返回它。
+如果 channel 是空的（即没有可用的 pushCtx），则执行 select 语句的 default 代码块。
+在 default 代码块中：
+尝试从 pushCtxPool 对象池中获取一个 pushCtx 对象。
+如果对象池中有一个可用的 pushCtx，则返回它。
+如果对象池为空，则创建一个新的 pushCtx 对象并返回。
+这个函数的设计意味着它首先会尝试从 pushCtxPoolCh channel 中获取一个 pushCtx，如果 channel 是空的，它会退回到 pushCtxPool 对象池。如果对象池也是空的，它会创建一个全新的 pushCtx 对象。这种设计提供了两级缓存机制，优先使用 channel，然后使用对象池，最后是新对象的创建。
+
+这种方法是为了在高并发环境下提供更好的性能，因为从 channel 读取通常比从对象池获取更快。但如果 channel 是空的，对象池提供了一个备选方案，避免了不必要的对象创建。
+</pre>
+*/
 func getPushCtx() *pushCtx {
 	select {
 	case ctx := <-pushCtxPoolCh:
